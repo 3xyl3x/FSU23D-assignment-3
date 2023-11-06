@@ -10,7 +10,7 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 
-// Defaul location (Örebro)
+// Default location (Örebro)
 map.setView([59.28, 15.229], 12);
 
 // Locate the user
@@ -102,3 +102,14 @@ function createPendingQuery(){
 out skel qt;`;
 processPendingQuery();
 }
+
+
+function showRouteInfo(route) {
+    console.log(route);
+
+ // Get the modal
+var modal = document.getElementById("myModal");
+modal.style.display = "block";
+}
+
+

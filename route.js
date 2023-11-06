@@ -16,6 +16,9 @@ class Route {
         // Add a marker 
         this.marker= L.marker([this.ways[0]["coordinates"][0][0], this.ways[0]["coordinates"][0][1]]).addTo(map);
         this.marker.bindTooltip('Namn: ' + this.name ).openPopup();
+        this.marker.on('click', (e) => {
+            showRouteInfo(this);
+        });
 
         // Loop the ways
        this.ways.forEach(way => {
