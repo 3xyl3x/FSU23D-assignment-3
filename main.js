@@ -106,8 +106,13 @@ processPendingQuery();
 
 function showRouteInfo(route) {
     console.log(route);
-    var modal = document.getElementById("myModal");
-    modal.style.display = "block";
+    var modal = document.querySelector("#routeInfoModal");
+    var modalTitle =  modal.querySelector(".title");
+    var modalContent =  modal.querySelector(".content");
+
+    modal.style.display = "block"; // Show modal
+    modalTitle.innerHTML = route.name;
+
 }
 
 
