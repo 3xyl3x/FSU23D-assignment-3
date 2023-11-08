@@ -112,6 +112,39 @@ function showRouteInfo(route) {
 
     modal.style.display = "block"; // Show modal
     modalTitle.innerHTML = route.name;
+    modalContent.innerHTML = "Laddar väderdata för vandringsleden.";
+
+    var apiUrl = "https://opendata-download-metfcst.smhi.se/api/category/pmp3g/version/2/geotype/point/lon/15.2254/lat/59.6569/data.json";
+
+
+    fetch(apiUrl)
+        .then(response => response.json())
+        .then(data => {
+            // Extract all time steps
+            var timeSeries = data.timeSeries;
+
+            // Display the forecast
+            var forecastHtml = "<ul>";
+            for (var i = 0; i < timeSeries.length; i++) {
+                var time = new Date(timeSeries[i].validTime);
+                var temperature = timeSeries[i].parameters.find(function (param) {
+                    return param.name === "t";
+                }).values[0];
+                var weatherSymbol = timeSeries[i].parameters.find(function (param) {
+                    return param.name === "Wsymb2";
+                }).values[0];
+
+                forecastHtml += "<li>" + time.toDateString() + ": Temperatur " + temperature + "°C, SYMBOL[" + weatherSymbol + "]</li>";
+            }
+            forecastHtml += "</ul>";
+
+            modalContent.innerHTML = forecastHtml;
+        })
+        .catch(error => {
+            console.error("Error fetching data: " + error);
+        });
+
+
 
 }
 
