@@ -177,7 +177,7 @@ function showRouteInfo(route) {
     routeInfoModal.style.display = "block"; // Show modal
 
     // Fetch weather data from SMHI using the position of the route
-    fetch(`https://opendata-download-metfcst.smhi.se/api/category/p2mp3g/version/2/geotype/point/lon/${route.position[1].toFixed(4)}/lat/${route.position[0].toFixed(4)}/data.json`)
+    fetch(`https://opendata-download-metfcst.smhi.se/api/category/pmp3g/version/2/geotype/point/lon/${route.position[1].toFixed(4)}/lat/${route.position[0].toFixed(4)}/data.json`)
     .then(response => {
         return response.json();
     })
@@ -185,14 +185,19 @@ function showRouteInfo(route) {
             // Create an object to organize the data by date
             let dailyData = {};
 
-            // Extract the data we want (temperature (t) and weathersymbol(Wsymb2)) from the response
+            // Loop the response
             for (let i = 0; i < data.timeSeries.length; i++) {
+
+                // Get the date and time
                 const time = new Date(data.timeSeries[i].validTime);
                 const date = time.toISOString().split('T')[0];
                 const hour = time.getHours();
+
+                // Create daily data object for the date if it doesnt exist
                 if (!dailyData[date]) {
                     dailyData[date] = {};
                 }
+                // Set daily data variables (temperature /& symbo) for that date & hour
                 dailyData[date][hour] = {
                     temperature: data.timeSeries[i].parameters.find(function (param) {
                         return param.name === "t";
