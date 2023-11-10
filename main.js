@@ -107,8 +107,7 @@ function scanMap(bounds) {
                             }); 
                             // Add all the way coordinates into the created route
                             newRoute.addWay(way);
-                    }
-                       
+                        }  
                     });
                     // Add the created route to our list of routes
                     routes[relation.id]= newRoute;
@@ -118,11 +117,11 @@ function scanMap(bounds) {
             });
         }).catch(error => {
             console.error("Error fetching data:", error);
-
         }).finally(() => {
             // Remove scaning graphics
             rectangle.remove();
             textMarker.remove();
+
             // Set processing variable to false
             processingBounds = false;
 
@@ -134,83 +133,76 @@ function scanMap(bounds) {
         });
         
  
-} else {
-    // Already processing some bounds, set these to pending to be executed after current processed bounds
-    pendingBounds = bounds;
-}
+    } else {
+        // Already processing some bounds, set these to pending to be executed after current processed bounds
+        pendingBounds = bounds;
+    }
 
 
 }
 
 
-
-
-    
-
-
+// Function to open modal and post weather-data
 function showRouteInfo(route) {
-    console.log(route);
-    
-    var modalTitle =  modal.querySelector(".modal-title");
-    var modalBody =  modal.querySelector(".modal-table tbody");
+    // Get title element 
+    const modalTitle =  modal.querySelector(".modal-title");
 
-    modal.style.display = "block"; // Show modal
+    // Get table body
+    const modalBody =  modal.querySelector(".modal-table tbody");
+
+    // Set the title of the modal to the route title
     modalTitle.innerHTML = route.name;
+
+    // Clear the table body
     modalBody.innerHTML = "";
 
-   // var apiUrl = "https://opendata-download-metfcst.smhi.se/api/category/pmp3g/version/2/geotype/point/lon/15.2254/lat/59.6569/data.json";
-    var apiUrl = `https://opendata-download-metfcst.smhi.se/api/category/pmp3g/version/2/geotype/point/lon/${route.position[1].toFixed(4)}/lat/${route.position[0].toFixed(4)}/data.json`;
+    // Show modal
+    modal.style.display = "block"; // Show modal
 
-    fetch(apiUrl)
+    // Fetch weather data from SMHI using the position of the route
+    fetch(`https://opendata-download-metfcst.smhi.se/api/category/pmp3g/version/2/geotype/point/lon/${route.position[1].toFixed(4)}/lat/${route.position[0].toFixed(4)}/data.json`)
         .then(response => response.json())
         .then(data => {
-            console.log(data);
             // Extract all time steps
             var timeSeries = data.timeSeries;
 
-// Create an object to organize the data by date
-var dailyData = {};
+            // Create an object to organize the data by date
+            var dailyData = {};
 
-// Extract the data and organize it by date and time
-for (var i = 0; i < timeSeries.length; i++) {
-    var time = new Date(timeSeries[i].validTime);
-    var date = time.toISOString().split('T')[0];
-    var hour = time.getHours();
-
-
-        if (!dailyData[date]) {
-            dailyData[date] = {};
-        }
-        dailyData[date][hour] = {
-            temperature: timeSeries[i].parameters.find(function (param) {
-                return param.name === "t";
-            }).values[0],
-            weatherSymbol: timeSeries[i].parameters.find(function (param) {
-                return param.name === "Wsymb2";
-            }).values[0]
-        };
-    
-}
+            // Extract the data and organize it by date and time
+            for (var i = 0; i < timeSeries.length; i++) {
+                var time = new Date(timeSeries[i].validTime);
+                var date = time.toISOString().split('T')[0];
+                var hour = time.getHours();
+                    if (!dailyData[date]) {
+                        dailyData[date] = {};
+                    }
+                    dailyData[date][hour] = {
+                        temperature: timeSeries[i].parameters.find(function (param) {
+                            return param.name === "t";
+                        }).values[0],
+                        weatherSymbol: timeSeries[i].parameters.find(function (param) {
+                            return param.name === "Wsymb2";
+                        }).values[0]
+                    };
+                
+            }
 
 
-for (var date in dailyData) {
-    var row = document.createElement("tr");
-    row.innerHTML = "<td>" + date + "</td>";
-    var times = [1, 7, 13, 19];
-    for (var i = 0; i < times.length; i++) {
-        var hourData = dailyData[date][times[i]];
-        var cell = document.createElement("td");
-        if (hourData) {
-            cell.innerHTML = Math.round(hourData.temperature) + "° <img src='./symbols/" + hourData.weatherSymbol + ".png' width='32px'>";
-        } 
-        row.appendChild(cell);
-    }
-    modalBody.appendChild(row);
-}
-
-
-
-
+            for (var date in dailyData) {
+                var row = document.createElement("tr");
+                row.innerHTML = "<td>" + date + "</td>";
+                var times = [1, 7, 13, 19];
+                for (var i = 0; i < times.length; i++) {
+                    var hourData = dailyData[date][times[i]];
+                    var cell = document.createElement("td");
+                    if (hourData) {
+                        cell.innerHTML = Math.round(hourData.temperature) + "° <img src='./symbols/" + hourData.weatherSymbol + ".png' width='32px'>";
+                    } 
+                    row.appendChild(cell);
+                }
+                modalBody.appendChild(row);
+            }
         })
         .catch(error => {
             console.error("Error fetching data: " + error);
