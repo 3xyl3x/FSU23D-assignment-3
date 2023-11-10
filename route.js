@@ -19,6 +19,7 @@ class Route {
 
     // Function, Add route graphics to Map
     addToMap(map) {
+        if (this.position!==null) {
         // Add a marker 
         this.marker= L.marker(this.position).addTo(map);
         // Add name to the marker when hoover
@@ -27,8 +28,7 @@ class Route {
         this.marker.on('click', (e) => {
             showRouteInfo(this);
         });
-
-
+    }
 
         // Generate a color (rgb) based on the ID
         const color = `rgb(${(this.id * 15) % 256}, ${(this.id * 31) % 256}, ${(this.id * 10) % 256})`;
