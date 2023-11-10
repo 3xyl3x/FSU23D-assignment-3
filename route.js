@@ -5,7 +5,7 @@ class Route {
         this.ways=[];
         this.marker = null;
         this.position=null;
-        console.log(`Route ${this.name} added`);
+        console.log(`Route: ${this.name},added`);
     }
 
     addWay(way){
@@ -19,7 +19,9 @@ class Route {
 
     // Function, Add route graphics to Map
     addToMap(map) {
-        if (this.position!==null) {
+
+    // Check if route position is set
+    if (this.position!==null) {
         // Add a marker 
         this.marker= L.marker(this.position).addTo(map);
         // Add name to the marker when hoover

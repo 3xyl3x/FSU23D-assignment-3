@@ -15,7 +15,7 @@ modal.querySelector(".close").addEventListener("click",function(){
 const map = L.map('map').fitWorld();
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom:19,
-    minZoom:11,
+    minZoom:10,
     attribution: '© OpenStreetMap'
 }).addTo(map);
 
@@ -76,9 +76,14 @@ function scanMap(bounds) {
         // Fetch data (routes) from overpass
         fetch('https://overpass.kumi.systems/api/interpreter', {
             method: 'POST',
-            body: `[out:json][timeout:10];(relation["type"="route"]["route"="hiking"](${southWest.lat}, ${southWest.lng}, ${northEast.lat}, ${northEast.lng}););out body;>;out skel qt;`
+            body: `[out:json][timeout:15];(relation["type"="route"]["route"="hiking"](${southWest.lat}, ${southWest.lng}, ${northEast.lat}, ${northEast.lng}););out body;>;out skel qt;`
         })
-            .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Något gick fel. Svarsstatus: ${response.status}`);
+            }
+            return response.json();
+        })
             .then(data => {
 
                 // Extract relations,ways and nodes
@@ -116,7 +121,7 @@ function scanMap(bounds) {
                     newRoute.addToMap(map);
             });
         }).catch(error => {
-            console.error("Error fetching data:", error);
+            console.error("Fel vid parsning av JSON:", error);
         }).finally(() => {
             // Remove scaning graphics
             rectangle.remove();
@@ -161,43 +166,54 @@ function showRouteInfo(route) {
 
     // Fetch weather data from SMHI using the position of the route
     fetch(`https://opendata-download-metfcst.smhi.se/api/category/pmp3g/version/2/geotype/point/lon/${route.position[1].toFixed(4)}/lat/${route.position[0].toFixed(4)}/data.json`)
-        .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Något gick fel. Svarsstatus: ${response.status}`);
+        }
+        return response.json();
+    })
         .then(data => {
             // Create an object to organize the data by date
-            var dailyData = {};
+            let dailyData = {};
 
-            // Extract the data and organize it by date and time
-            for (var i = 0; i < data.timeSeries.length; i++) {
-                var time = new Date(data.timeSeries[i].validTime);
-                var date = time.toISOString().split('T')[0];
-                var hour = time.getHours();
-                    if (!dailyData[date]) {
-                        dailyData[date] = {};
-                    }
-                    dailyData[date][hour] = {
-                        temperature: data.timeSeries[i].parameters.find(function (param) {
-                            return param.name === "t";
-                        }).values[0],
-                        weatherSymbol: data.timeSeries[i].parameters.find(function (param) {
-                            return param.name === "Wsymb2";
-                        }).values[0]
-                    };
+            // Extract the data we want (temperature (t) and weathersymbol(Wsymb2)) from the response
+            for (let i = 0; i < data.timeSeries.length; i++) {
+                const time = new Date(data.timeSeries[i].validTime);
+                const date = time.toISOString().split('T')[0];
+                const hour = time.getHours();
+                if (!dailyData[date]) {
+                    dailyData[date] = {};
+                }
+                dailyData[date][hour] = {
+                    temperature: data.timeSeries[i].parameters.find(function (param) {
+                        return param.name === "t";
+                    }).values[0],
+                    weatherSymbol: data.timeSeries[i].parameters.find(function (param) {
+                        return param.name === "Wsymb2";
+                    }).values[0]
+                };
                 
             }
 
 
-            for (var date in dailyData) {
-                var row = document.createElement("tr");
+            for (let date in dailyData) {
+                const row = document.createElement("tr");
+                // First cell is the date
                 row.innerHTML = "<td>" + date + "</td>";
-                var times = [1, 7, 13, 19];
-                for (var i = 0; i < times.length; i++) {
-                    var hourData = dailyData[date][times[i]];
-                    var cell = document.createElement("td");
-                    if (hourData) {
-                        cell.innerHTML = Math.round(hourData.temperature) + "° <img src='./symbols/" + hourData.weatherSymbol + ".png' width='32px'>";
+                // Hours we want to extract
+                const times = [1, 7, 13, 19];
+                for (let i = 0; i < times.length; i++) {
+                    // Create a cell 
+                    const cell = document.createElement("td");
+
+                    // If there is data for the specific hour, add it to the cell
+                    if (dailyData[date][times[i]]) {
+                        cell.innerHTML = Math.round(dailyData[date][times[i]].temperature) + "° <img src='./symbols/" + dailyData[date][times[i]].weatherSymbol + ".png' width='32px'>";
                     } 
+                    // Append the cell into the row
                     row.appendChild(cell);
                 }
+                // Append row into table body
                 modalBody.appendChild(row);
             }
         })
