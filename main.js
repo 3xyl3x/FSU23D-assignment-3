@@ -163,25 +163,22 @@ function showRouteInfo(route) {
     fetch(`https://opendata-download-metfcst.smhi.se/api/category/pmp3g/version/2/geotype/point/lon/${route.position[1].toFixed(4)}/lat/${route.position[0].toFixed(4)}/data.json`)
         .then(response => response.json())
         .then(data => {
-            // Extract all time steps
-            var timeSeries = data.timeSeries;
-
             // Create an object to organize the data by date
             var dailyData = {};
 
             // Extract the data and organize it by date and time
-            for (var i = 0; i < timeSeries.length; i++) {
-                var time = new Date(timeSeries[i].validTime);
+            for (var i = 0; i < data.timeSeries.length; i++) {
+                var time = new Date(data.timeSeries[i].validTime);
                 var date = time.toISOString().split('T')[0];
                 var hour = time.getHours();
                     if (!dailyData[date]) {
                         dailyData[date] = {};
                     }
                     dailyData[date][hour] = {
-                        temperature: timeSeries[i].parameters.find(function (param) {
+                        temperature: data.timeSeries[i].parameters.find(function (param) {
                             return param.name === "t";
                         }).values[0],
-                        weatherSymbol: timeSeries[i].parameters.find(function (param) {
+                        weatherSymbol: data.timeSeries[i].parameters.find(function (param) {
                             return param.name === "Wsymb2";
                         }).values[0]
                     };
