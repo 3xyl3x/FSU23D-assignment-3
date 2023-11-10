@@ -1,8 +1,12 @@
 var map = L.map('map').fitWorld();
+var modal = document.querySelector("#routeInfoModal");
 var pendingQuery = null;
 var processingQuery = null;
 var routes={};
 let drawnRelations = [];
+modal.querySelector(".close").addEventListener("click",function(){
+    modal.style.display = "none";
+});
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom:19,
     minZoom:11,
@@ -106,39 +110,67 @@ processPendingQuery();
 
 function showRouteInfo(route) {
     console.log(route);
-    var modal = document.querySelector("#routeInfoModal");
-    var modalTitle =  modal.querySelector(".title");
-    var modalContent =  modal.querySelector(".content");
+    
+    var modalTitle =  modal.querySelector(".modal-title");
+    var modalBody =  modal.querySelector(".modal-table tbody");
 
     modal.style.display = "block"; // Show modal
     modalTitle.innerHTML = route.name;
-    modalContent.innerHTML = "Laddar väderdata för vandringsleden.";
+    modalBody.innerHTML = "";
 
-    var apiUrl = "https://opendata-download-metfcst.smhi.se/api/category/pmp3g/version/2/geotype/point/lon/15.2254/lat/59.6569/data.json";
-
+   // var apiUrl = "https://opendata-download-metfcst.smhi.se/api/category/pmp3g/version/2/geotype/point/lon/15.2254/lat/59.6569/data.json";
+    var apiUrl = `https://opendata-download-metfcst.smhi.se/api/category/pmp3g/version/2/geotype/point/lon/${route.position[1].toFixed(4)}/lat/${route.position[0].toFixed(4)}/data.json`;
 
     fetch(apiUrl)
         .then(response => response.json())
         .then(data => {
+            console.log(data);
             // Extract all time steps
             var timeSeries = data.timeSeries;
 
-            // Display the forecast
-            var forecastHtml = "<ul>";
-            for (var i = 0; i < timeSeries.length; i++) {
-                var time = new Date(timeSeries[i].validTime);
-                var temperature = timeSeries[i].parameters.find(function (param) {
-                    return param.name === "t";
-                }).values[0];
-                var weatherSymbol = timeSeries[i].parameters.find(function (param) {
-                    return param.name === "Wsymb2";
-                }).values[0];
+// Create an object to organize the data by date
+var dailyData = {};
 
-                forecastHtml += "<li>" + time.toDateString() + ": Temperatur " + temperature + "°C, SYMBOL[" + weatherSymbol + "]</li>";
-            }
-            forecastHtml += "</ul>";
+// Extract the data and organize it by date and time
+for (var i = 0; i < timeSeries.length; i++) {
+    var time = new Date(timeSeries[i].validTime);
+    var date = time.toISOString().split('T')[0];
+    var hour = time.getHours();
 
-            modalContent.innerHTML = forecastHtml;
+
+        if (!dailyData[date]) {
+            dailyData[date] = {};
+        }
+        dailyData[date][hour] = {
+            temperature: timeSeries[i].parameters.find(function (param) {
+                return param.name === "t";
+            }).values[0],
+            weatherSymbol: timeSeries[i].parameters.find(function (param) {
+                return param.name === "Wsymb2";
+            }).values[0]
+        };
+    
+}
+
+
+for (var date in dailyData) {
+    var row = document.createElement("tr");
+    row.innerHTML = "<td>" + date + "</td>";
+    var times = [1, 7, 13, 19];
+    for (var i = 0; i < times.length; i++) {
+        var hourData = dailyData[date][times[i]];
+        var cell = document.createElement("td");
+        if (hourData) {
+            cell.innerHTML = Math.round(hourData.temperature) + "° <img src='./symbols/" + hourData.weatherSymbol + ".png' width='32px'>";
+        } 
+        row.appendChild(cell);
+    }
+    modalBody.appendChild(row);
+}
+
+
+
+
         })
         .catch(error => {
             console.error("Error fetching data: " + error);

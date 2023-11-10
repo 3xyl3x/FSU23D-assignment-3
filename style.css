@@ -30,6 +30,16 @@ html, body, #map {
     border: 1px solid #888;
     width: 80%; /* Could be more or less, depending on screen size */
   }
+
+  .modal-table {
+    width: 100%;
+    border:1px solid #000;
+    text-align: center;
+  }
+
+  .modal-table thead{
+    background-color: #eee ;
+  }
   
   /* The Close Button */
   .close {
