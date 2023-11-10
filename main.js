@@ -5,36 +5,44 @@ var pendingBounds = null;
 // Object to store routes
 var routes={};
 
-// Set modal variable and create a listener on its close button
-const modal = document.querySelector("#routeInfoModal");
-modal.querySelector(".close").addEventListener("click",function(){
-    modal.style.display = "none";
+// Set modal variables and create listeners on the close buttons
+const routeInfoModal = document.querySelector("#routeInfoModal");
+routeInfoModal.querySelector(".close").addEventListener("click",function(){
+    routeInfoModal.style.display = "none";
 });
+
+const errorModal = document.querySelector("#errorModal");
+errorModal.querySelector(".close").addEventListener("click",function(){
+    errorModal.style.display = "none";
+});
+
 
 // Create a leaflet map using OSM tiles
 const map = L.map('map').fitWorld();
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom:19,
-    minZoom:10,
+    minZoom:12,
     attribution: '© OpenStreetMap'
 }).addTo(map);
 
 
 // Default location (Örebro)
-map.setView([59.28, 15.229], 12);
+map.setView([59.28, 15.229], 13);
 
 // Scan map
 scanMap(map.getBounds());
 
 // Locate the user
-map.locate({setView: true});
+map.locate({setView: false});
 
 // When user is located, add marker
 map.on('locationfound', function(e){
-    console.log("User located.")
-    var radius = e.accuracy;
+    console.log("User located.");
+    // Add marker and a circle where user is located
     L.marker(e.latlng).addTo(map);
-    L.circle(e.latlng, radius).addTo(map);
+    L.circle(e.latlng, e.accuracy).addTo(map);
+    // Move map to location
+    map.setView(e.latlng, 13);
 
 });
 
@@ -79,12 +87,9 @@ function scanMap(bounds) {
             body: `[out:json][timeout:15];(relation["type"="route"]["route"="hiking"](${southWest.lat}, ${southWest.lng}, ${northEast.lat}, ${northEast.lng}););out body;>;out skel qt;`
         })
         .then(response => {
-            if (!response.ok) {
-                throw new Error(`Något gick fel. Svarsstatus: ${response.status}`);
-            }
             return response.json();
         })
-            .then(data => {
+        .then(data => {
 
                 // Extract relations,ways and nodes
                 const relations = data.elements.filter(element => element.type === 'relation');
@@ -121,7 +126,8 @@ function scanMap(bounds) {
                     newRoute.addToMap(map);
             });
         }).catch(error => {
-            console.error("Fel vid parsning av JSON:", error);
+            console.error("Error fetching from overpass: ", error);
+            showError("Fel vid hämtning av kartdata.");
         }).finally(() => {
             // Remove scaning graphics
             rectangle.remove();
@@ -145,15 +151,21 @@ function scanMap(bounds) {
 
 
 }
+// Function to open error modal
+function showError(message) {
+    // Set message
+    errorModal.querySelector(".modal-text").innerHTML=message
+   // Show modal
+   errorModal.style.display = "block"; // Show modal
+}
 
-
-// Function to open modal and post weather-data
+// Function to open route info modal and post weather-data
 function showRouteInfo(route) {
     // Get title element 
-    const modalTitle =  modal.querySelector(".modal-title");
+    const modalTitle =  routeInfoModal.querySelector(".modal-title");
 
     // Get table body
-    const modalBody =  modal.querySelector(".modal-table tbody");
+    const modalBody =  routeInfoModal.querySelector(".modal-table tbody");
 
     // Set the title of the modal to the route title
     modalTitle.innerHTML = route.name;
@@ -162,14 +174,11 @@ function showRouteInfo(route) {
     modalBody.innerHTML = "";
 
     // Show modal
-    modal.style.display = "block"; // Show modal
+    routeInfoModal.style.display = "block"; // Show modal
 
     // Fetch weather data from SMHI using the position of the route
-    fetch(`https://opendata-download-metfcst.smhi.se/api/category/pmp3g/version/2/geotype/point/lon/${route.position[1].toFixed(4)}/lat/${route.position[0].toFixed(4)}/data.json`)
+    fetch(`https://opendata-download-metfcst.smhi.se/api/category/p2mp3g/version/2/geotype/point/lon/${route.position[1].toFixed(4)}/lat/${route.position[0].toFixed(4)}/data.json`)
     .then(response => {
-        if (!response.ok) {
-            throw new Error(`Något gick fel. Svarsstatus: ${response.status}`);
-        }
         return response.json();
     })
         .then(data => {
@@ -218,7 +227,11 @@ function showRouteInfo(route) {
             }
         })
         .catch(error => {
-            console.error("Error fetching data: " + error);
+            console.error("Error fetching from smhi: ", error);
+            // Hide info modal
+            routeInfoModal.style.display = "none";
+            // Show error modal
+            showError("Fel vid hämtning av väderdata.");
         });
 
 
