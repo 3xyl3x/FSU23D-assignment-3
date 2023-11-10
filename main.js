@@ -1,12 +1,18 @@
-var map = L.map('map').fitWorld();
-var modal = document.querySelector("#routeInfoModal");
-var pendingBounds = null;
+
+// Variable to check if we are processing from overpass API
 var processingBounds = false;
+var pendingBounds = null;
+// Object to store routes
 var routes={};
 
+// Set modal variable and create a listener on its close button
+const modal = document.querySelector("#routeInfoModal");
 modal.querySelector(".close").addEventListener("click",function(){
     modal.style.display = "none";
 });
+
+// Create a leaflet map using OSM tiles
+const map = L.map('map').fitWorld();
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom:19,
     minZoom:11,
@@ -17,6 +23,9 @@ L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
 // Default location (Örebro)
 map.setView([59.28, 15.229], 12);
 
+// Scan map
+scanMap(map.getBounds());
+
 // Locate the user
 map.locate({setView: true});
 
@@ -26,41 +35,28 @@ map.on('locationfound', function(e){
     var radius = e.accuracy;
     L.marker(e.latlng).addTo(map);
     L.circle(e.latlng, radius).addTo(map);
-    scanMap(map.getBounds());
-});
-map.on('locationerror', function(e) {
-    console.log("User not located.");
-    scanMap(map.getBounds());
-  });
 
+});
+
+// Scan map when map is moved
 map.on('moveend', function (e){
     scanMap(map.getBounds());
 });
 
 
 
-function scanMap(bounds) {
-    // If bounds provided, save it as pending
-    if (bounds) pendingBounds=bounds;
-
-    // If nothing is pending, stop function
-    if (pendingBounds===null) return false; 
-    
-    // If no processing bounds, execute fetch on the pending bounds 
+function scanMap(bounds) {    
+    // If not processing bounds, execute fetch on these bounds
     if (!processingBounds) {
-
-        // Set the processing bounds from the pending
+        // Set status of processingBounds to true
         processingBounds=true;
 
         // Get the bounds from the from the pending bounds
-        var southWest = pendingBounds.getSouthWest();
-        var northEast = pendingBounds.getNorthEast();
-
-        // Empty the pending bounds
-        pendingBounds = null;
+        const southWest = bounds.getSouthWest();
+        const northEast = bounds.getNorthEast();
 
         // Create a green rectangle of the processing area
-        var rectangle = L.rectangle([
+        const rectangle = L.rectangle([
             [southWest.lat, southWest.lng],
             [northEast.lat, northEast.lng]
         ], {
@@ -69,24 +65,20 @@ function scanMap(bounds) {
         }).addTo(map);   
 
         // Add a text in the middle
-        var text = L.divIcon({
+        const text = L.divIcon({
             className: 'text-label',
             html: 'Skannar sektion',
             iconAnchor: [100, 0]
         });
-        var textMarker= L.marker([(southWest.lat + northEast.lat) / 2, (southWest.lng + northEast.lng) / 2], { icon: text }).addTo(map);
+        const textMarker= L.marker([(southWest.lat + northEast.lat) / 2, (southWest.lng + northEast.lng) / 2], { icon: text }).addTo(map);
   
 
         fetch('https://overpass.kumi.systems/api/interpreter', {
             method: 'POST',
-            body: `[out:json][timeout:15];(relation["type"="route"]["route"="hiking"](${southWest.lat}, ${southWest.lng}, ${northEast.lat}, ${northEast.lng}););out body;>;out skel qt;`
+            body: `[out:json][timeout:10];(relation["type"="route"]["route"="hiking"](${southWest.lat}, ${southWest.lng}, ${northEast.lat}, ${northEast.lng}););out body;>;out skel qt;`
         })
             .then(response => response.json())
             .then(data => {
-                rectangle.remove();
-                textMarker.remove();
-                processingBounds = false;
-
                 const relations = data.elements.filter(element => element.type === 'relation');
                 const ways = data.elements.filter(element => element.type === 'way');
                 const nodes = data.elements.filter(element => element.type === 'node');
@@ -110,22 +102,28 @@ function scanMap(bounds) {
           
                     routes[relation.id]= newRoute;
                     newRoute.addToMap(map);
-
-                           
-
             });
         }).catch(error => {
             console.error("Error fetching data:", error);
+
+        }).finally(() => {
+            // Remove scaning graphics
             rectangle.remove();
             textMarker.remove();
+            // Set processing variable to false
             processingBounds = false;
-        });;
+
+            // If there is pending bounds, execute them
+            if (pendingBounds) {
+                scanMap(pendingBounds)
+                pendingBounds= null;
+            };
+        });
         
  
 } else {
-    // We have a pending query, call function
-    console.log("We have a pending query, call it in 3 secs");
-    setInterval(scanMap, 3000);
+    // Already processing some bounds, set these to pending to be executed after current processed bounds
+    pendingBounds = bounds;
 }
 
 
