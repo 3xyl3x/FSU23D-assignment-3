@@ -1,9 +1,9 @@
 var map = L.map('map').fitWorld();
 var modal = document.querySelector("#routeInfoModal");
-var pendingQuery = null;
-var processingQuery = null;
+var pendingBounds = null;
+var processingBounds = false;
 var routes={};
-let drawnRelations = [];
+
 modal.querySelector(".close").addEventListener("click",function(){
     modal.style.display = "none";
 });
@@ -26,33 +26,66 @@ map.on('locationfound', function(e){
     var radius = e.accuracy;
     L.marker(e.latlng).addTo(map);
     L.circle(e.latlng, radius).addTo(map);
-    createPendingQuery();
+    scanMap(map.getBounds());
 });
 map.on('locationerror', function(e) {
     console.log("User not located.");
-    createPendingQuery();
+    scanMap(map.getBounds());
   });
 
 map.on('moveend', function (e){
-    createPendingQuery();
+    scanMap(map.getBounds());
 });
 
 
 
-function processPendingQuery() {
-  if (pendingQuery!=null) {
-    if (processingQuery===null) {
-        console.log("Fetching map data")
-        processingQuery=pendingQuery;
-        pendingQuery = null;
+function scanMap(bounds) {
+    // If bounds provided, save it as pending
+    if (bounds) pendingBounds=bounds;
+
+    // If nothing is pending, stop function
+    if (pendingBounds===null) return false; 
+    
+    // If no processing bounds, execute fetch on the pending bounds 
+    if (!processingBounds) {
+
+        // Set the processing bounds from the pending
+        processingBounds=true;
+
+        // Get the bounds from the from the pending bounds
+        var southWest = pendingBounds.getSouthWest();
+        var northEast = pendingBounds.getNorthEast();
+
+        // Empty the pending bounds
+        pendingBounds = null;
+
+        // Create a green rectangle of the processing area
+        var rectangle = L.rectangle([
+            [southWest.lat, southWest.lng],
+            [northEast.lat, northEast.lng]
+        ], {
+            fillColor: 'green',
+            fillOpacity: 0.2
+        }).addTo(map);   
+
+        // Add a text in the middle
+        var text = L.divIcon({
+            className: 'text-label',
+            html: 'Skannar sektion',
+            iconAnchor: [100, 0]
+        });
+        var textMarker= L.marker([(southWest.lat + northEast.lat) / 2, (southWest.lng + northEast.lng) / 2], { icon: text }).addTo(map);
+  
+
         fetch('https://overpass.kumi.systems/api/interpreter', {
             method: 'POST',
-            body: processingQuery
+            body: `[out:json][timeout:15];(relation["type"="route"]["route"="hiking"](${southWest.lat}, ${southWest.lng}, ${northEast.lat}, ${northEast.lng}););out body;>;out skel qt;`
         })
             .then(response => response.json())
             .then(data => {
-                console.log("Data fetched");
-                processingQuery = null;
+                rectangle.remove();
+                textMarker.remove();
+                processingBounds = false;
 
                 const relations = data.elements.filter(element => element.type === 'relation');
                 const ways = data.elements.filter(element => element.type === 'way');
@@ -83,29 +116,25 @@ function processPendingQuery() {
             });
         }).catch(error => {
             console.error("Error fetching data:", error);
-            processingQuery = null;
+            rectangle.remove();
+            textMarker.remove();
+            processingBounds = false;
         });;
         
  
-}}}
-
-// Call the function every 10 seconds to make sure to deal with pending requests
-setInterval(processPendingQuery, 10000);
-
-
-function createPendingQuery(){
-    var bounds = map.getBounds();
-    var southWest = bounds.getSouthWest();
-    var northEast = bounds.getNorthEast();
-     pendingQuery = `[out:json];
-    (
-      relation["type"="route"]["route"="hiking"](${southWest.lat}, ${southWest.lng}, ${northEast.lat}, ${northEast.lng});
-    );
-    out body;
-    >;
-out skel qt;`;
-processPendingQuery();
+} else {
+    // We have a pending query, call function
+    console.log("We have a pending query, call it in 3 secs");
+    setInterval(scanMap, 3000);
 }
+
+
+}
+
+
+
+
+    
 
 
 function showRouteInfo(route) {
