@@ -73,34 +73,47 @@ function scanMap(bounds) {
         const textMarker= L.marker([(southWest.lat + northEast.lat) / 2, (southWest.lng + northEast.lng) / 2], { icon: text }).addTo(map);
   
 
+        // Fetch data (routes) from overpass
         fetch('https://overpass.kumi.systems/api/interpreter', {
             method: 'POST',
             body: `[out:json][timeout:10];(relation["type"="route"]["route"="hiking"](${southWest.lat}, ${southWest.lng}, ${northEast.lat}, ${northEast.lng}););out body;>;out skel qt;`
         })
             .then(response => response.json())
             .then(data => {
+
+                // Extract relations,ways and nodes
                 const relations = data.elements.filter(element => element.type === 'relation');
                 const ways = data.elements.filter(element => element.type === 'way');
                 const nodes = data.elements.filter(element => element.type === 'node');
                 
-
+                // Loop each relation (route)
                 relations.forEach(relation => {
+                    // Route already in our list, skip
                     if (routes[relation.id]) return;
+
+                    // Create route instance
                     newRoute = new Route(relation);
+
+                    // Loop all the members (ways) of the relation
                     relation.members.forEach(member => {
                         const way = ways.find(way => way.id === member.ref);
                         if (way) {
                             way["coordinates"] = [];
+                            // Loop all the nodes in the way
                             way.nodes.forEach(nodeID => {
                                 const node = nodes.find(node => node.id === nodeID);
+                                // Push the node coordinates into the way coordinates array
                                 way["coordinates"].push([node.lat, node.lon]);
                             }); 
+                            // Add all the way coordinates into the created route
                             newRoute.addWay(way);
                     }
                        
                     });
-          
+                    // Add the created route to our list of routes
                     routes[relation.id]= newRoute;
+
+                    // Add the route to the map
                     newRoute.addToMap(map);
             });
         }).catch(error => {
